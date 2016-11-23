@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pl">
+   <head>
+      <meta charset="utf-8">
+      <title>Edycja ramówki godzinowej</title>
+      <meta name="description" content="">
+      <meta name="author" content="Dawid Galus">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link href="http://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+      <link rel="stylesheet" href="{{ url_for('static', filename='css/normalize.css') }}">
+      <link rel="stylesheet" href="{{ url_for('static', filename='css/skeleton.css') }}">
+      <link rel="stylesheet" href="{{ url_for('static', filename='css/jquery-ui.min.css') }}">
+      <script src="{{ url_for('static', filename='js/jquery-1.12.4.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/jquery-ui.js') }}"></script>
+      <script>
+            function addMinutes(time, minsToAdd) {
+                function z(n){
+                    return (n<10? '0':'') + n;
+                }
+                var bits = time.split(':');
+                var mins = bits[0]*60 + (+bits[1]) + (+minsToAdd);
+                return z(mins%(24*60)/60 | 0) + ':' + z(mins%60);
+            }
+            function ApplyNumeration(){
+                var tbl = document.getElementById('tbl');
+                for (var i=1; i<tbl.rows.length; i++){
+                    tbl.rows[i].cells[3].innerHTML = "<input type='submit' onClick='removeElement(" + i + ")' value='Usuń' />";
+                    if(i == 1){
+                        tbl.rows[i].cells[0].innerHTML = "{{ hour }}";
+                    } else {
+                        tbl.rows[i].cells[0].innerHTML = addMinutes(tbl.rows[i-1].cells[0].innerHTML, tbl.rows[i-1].cells[1].innerHTML);
+                    }
+                }
+            }
+            $(function(){
+                $("tbody").sortable({ update: function(event, ui) { ApplyNumeration(); } }).disableSelection();
+            });
+            $(document).ready( function() { ApplyNumeration(); } );
+       </script>
+   </head>
+   <body>
+      <div class="container" style="margin-top: 5%">
+         <h4>{{ day }}, {{ hour }}</h4>
+         <table class="u-full-width" id="tbl">
+            <thead>
+               <tr>
+                  <th>Początek</th>
+                  <th>Długość</th>
+                  <th>Typ</th>
+                  <th>Operacje</th>
+               </tr>
+            </thead>
+            <tbody>
+               {%- for r in segments %}
+               <tr>
+                  <td>{{ hour }}</td>
+                  <td>{{ r.duration }}</td>
+                  <td>{{ r.eventtype }}</td>
+                  <td><input type="submit" onClick="removeElement({{ r.index }})" value="Usuń" /></td>
+               </tr>
+               {%- endfor %}
+            </tbody>
+         </table>
+         <div class="row">
+            <input type="text" id="length" class="three columns" placeholder="Długość" />
+            <select class="five columns" id="aud_type">
+               <option value="advert">Reklama</option>
+               <option value="ext_aud">Audycja</option>
+               <option value="music">Muzyka</option>
+               <option value="news">Dziennik</option>
+               <option value="speak">Rozmowa</option>
+               <option value="weather">Pogoda</option>
+            </select>
+            <input class="four columns" onclick="addElement()" value="Dodaj element" type="submit">
+         </div>
+         <br />
+         <hr />
+         <form action="/save" id="saveform" method="post">
+             <input type="hidden" name="day" value="{{ day_stc }}"/>
+             <input type="hidden" name="hour" value="{{ hour_str }}" />
+             <input type="hidden" id="plan" name="plan" value="" />
+         </form>
+         <input class="button-primary u-pull-right" onClick="saveSegments()" value="Zapisz" type="submit">
+      </div>
+      <script>
+        function addElement(){
+            var tbl = document.getElementById('tbl');
+            var len = document.getElementById('length').value;
+            var type = document.getElementById('aud_type').value;
+            if(len != null && type != null && !isNaN(len)){
+                var row = tbl.insertRow(tbl.rows.length);
+                row.insertCell(0).innerHTML = "";
+                row.insertCell(1).innerHTML = Math.floor(len);
+                var aud_t = "";
+                if(type == "news") aud_t = "Dziennik";
+                else if(type == "advert") aud_t = "Reklama";
+                else if(type == "weather") aud_t = "Pogoda";
+                else if(type == "ext_aud") aud_t = "Audycja";
+                else if(type == "speak") aud_t = "Rozmowa";
+                else if(type == "music") aud_t = "Muzyka";
+                row.insertCell(2).innerHTML = aud_t;
+                var cell = row.insertCell(3);
+                cell.innerHTML = "<input type=\"submit\" onClick=\"removeElement(" + tbl.rows.length + ")\" value=\"Usuń\" />";
+                ApplyNumeration();
+            }
+        }
+        function removeElement(idx){
+            var tbl = document.getElementById('tbl');
+            tbl.deleteRow(idx);
+            ApplyNumeration();
+        }
+        function saveSegments(){
+            var tbl = document.getElementById('tbl');
+            var str = "";
+            for (var i=1; i<tbl.rows.length; i++){
+                var len = tbl.rows[i].cells[1].innerHTML;
+                var aud = "";
+                var aud_type = tbl.rows[i].cells[2].innerHTML;
+                if(aud_type == "Reklama") aud = "1";
+                else if(aud_type == "Audycja") aud = "2";
+                else if(aud_type == "Muzyka") aud = "3";
+                else if(aud_type == "Dziennik") aud = "4";
+                else if(aud_type == "Rozmowa") aud = "5";
+                else if(aud_type == "Pogoda") aud = "6";
+                str = str + len + "a" + aud + "b";
+            }
+            document.getElementById('plan').value = str;
+            document.getElementById('saveform').submit();
+        }
+      </script>
+   </body>
+</html>
